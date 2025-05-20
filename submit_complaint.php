@@ -51,30 +51,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Details must be at least 20 characters long";
     }
 
+    // Validate location first
+    if (empty($location)) {
+        $errors[] = "Location is required";
+    }
+
     if (empty($errors)) {
         // Get user details
         $stmt = $pdo->prepare("SELECT full_name FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
         $user = $stmt->fetch();
 
-        // Insert complaint
-        $sql = "INSERT INTO complaints (user_id, type, name, phone, email, address, subject_type, subject, details, status) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')";
+        // File upload handling
+        $uploadDir = 'uploads/';
+        $allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword'];
+        $maxFileSize = 5 * 1024 * 1024; // 5MB
+        $attachments = [];
+
+        if (!empty($_FILES['attachments']['name'][0])) {
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+
+            foreach ($_FILES['attachments']['tmp_name'] as $key => $tmpName) {
+                $fileType = $_FILES['attachments']['type'][$key];
+                $fileSize = $_FILES['attachments']['size'][$key];
+                
+                if (!in_array($fileType, $allowedTypes)) {
+                    $errors[] = "Invalid file type. Allowed types: JPG, PNG, PDF, DOC";
+                    continue;
+                }
+                
+                if ($fileSize > $maxFileSize) {
+                    $errors[] = "File size exceeds 5MB limit";
+                    continue;
+                }
+
+                $fileName = basename($_FILES['attachments']['name'][$key]);
+                $targetFile = $uploadDir . time() . '_' . $fileName;
+
+                if (move_uploaded_file($tmpName, $targetFile)) {
+                    $attachments[] = $targetFile;
+                }
+            }
+        }
+
+        if (!empty($errors)) {
+            $_SESSION['errors'] = $errors;
+            header("Location: submit_complaint.php?error=1");
+            exit();
+        }
+
+        // Insert complaint with attachments
+        $sql = "INSERT INTO complaints (user_id, type, name, phone, email, address, subject_type, subject, details, status, attachments) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $_SESSION['user_id'],
             $subject_type,
             $user['full_name'],
-            '', // phone will be empty for now
-            '', // email will be empty for now
-            '', // address will be empty for now
+            '', // phone
+            '', // email
+            $location, // Using the location from form
             $subject_type,
             $subject,
-            $details
+            $details,
+            !empty($attachments) ? json_encode($attachments) : null
         ]);
 
-        // Insert complaint
-        $stmt->execute();
         $complaint_id = $pdo->lastInsertId();
         
         // Create notification for admin
@@ -94,10 +138,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['success'] = "Your complaint has been submitted successfully!";
         header("Location: submit_complaint.php?success=1");
         exit();
-    }
-    
-    if (empty($location)) {
-        $errors[] = "Location is required";
     }
 
     // File upload handling
@@ -137,63 +177,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($errors)) {
         $_SESSION['errors'] = $errors;
         header("Location: submit_complaint.php?error=1");
-        exit();
-    }
-
-    try {
-        // Start transaction
-        $pdo->beginTransaction();
-        
-        // Insert complaint
-        $stmt = $pdo->prepare("
-            INSERT INTO complaints (
-                type, name, phone, email, address, subject_type, subject, details, attachments, 
-                created_at, updated_at, user_id, status
-            ) VALUES (
-                :type, :name, :phone, :email, :address, :subject_type, :subject, :details, :attachments,
-                :created_at, :updated_at, :user_id, :status
-            )");
-
-        $stmt->execute([
-            ':type'        => 'Complaint',
-            ':name'        => $_SESSION['full_name'] ?? 'Anonymous',
-            ':phone'       => $_SESSION['phone'] ?? '',
-            ':email'       => $_SESSION['email'] ?? '',
-            ':address'     => $location,
-            ':subject_type' => $subject_type,
-            ':subject'     => $subject,
-            ':details'     => $details,
-            ':attachments' => !empty($attachments) ? json_encode($attachments) : null,
-            ':created_at'  => $created_at,
-            ':updated_at'  => $created_at,
-            ':user_id'     => $_SESSION['user_id'] ?? null,
-            ':status'      => 'pending'
-        ]);
-
-        // Commit transaction
-        $pdo->commit();
-
-        // Clear form data after successful submission
-        $_SESSION['form_data'] = [
-            'subject' => '',
-            'details' => '',
-            'location' => '',
-            'attachments' => []
-        ];
-
-        $_SESSION['success'] = "Your complaint has been submitted successfully!";
-        header("Location: submit_complaint.php");
-        exit();
-    } catch (PDOException $e) {
-        // Rollback transaction on error
-        $pdo->rollBack();
-        
-        // Log the error
-        error_log("Complaint submission error: " . $e->getMessage());
-        
-        // Provide a user-friendly error message
-        $_SESSION['error'] = "There was an error submitting your complaint. Please try again later.";
-        header("Location: submit_complaint.php");
         exit();
     }
 }
@@ -283,7 +266,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <textarea name="details" id="details" rows="5" 
                                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                       required
-                                      minlength="20"><?= htmlspecialchars($_SESSION['form_data']['details'] ?? '') ?></textarea>
+                                      minlength="20" placeholder="Date: [Insert Date]
+
+To:
+Hon. Barangay Captain  
+Barangay Old Sagay  
+Sagay City, Negros Occidental  
+
+Subject: Formal Complaint Regarding [e.g., Broken Streetlights]
+
+Dear Hon. Barangay Captain,
+
+I am [Your Full Name], a resident of [Your Full Address]. I would like to formally file a complaint regarding [briefly state the issue, e.g., the broken streetlights along Purok XYZ, which have not been functioning for two weeks now].
+
+This situation causes inconvenience and poses a safety risk for residents walking during nighttime. I hope your office can look into this matter and take the necessary steps for its resolution.
+
+Hoping for your kind attention and immediate action. Thank you.
+
+Respectfully yours,  
+[Your Full Name]  
+[Contact Number]  
+[Signature if printed]
+"><?= htmlspecialchars($_SESSION['form_data']['details'] ?? '') ?></textarea>
                             <p class="text-xs text-gray-500 mt-1">Minimum 20 characters</p>
                             <div id="detailsCounter" class="text-xs text-gray-400 mt-1">0/500 characters</div>
                         </div>
@@ -442,14 +446,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const submitButton = form.querySelector('button[type="submit"]');
         const submitText = document.getElementById('submitText');
         const submitSpinner = document.getElementById('submitSpinner');
+        let isSubmitting = false;
 
         form.addEventListener('submit', function(e) {
+            if (isSubmitting) {
+                e.preventDefault();
+                return;
+            }
+            
             e.preventDefault();
             
             // Show loading state
             submitButton.disabled = true;
             submitText.classList.add('hidden');
             submitSpinner.classList.remove('hidden');
+            
+            // Prevent double submission
+            isSubmitting = true;
             
             // Submit form
             form.submit();

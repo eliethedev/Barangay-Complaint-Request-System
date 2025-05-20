@@ -215,7 +215,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <!-- Login Card -->
         <div class="bg-white rounded-xl shadow-lg border border-gray-200 card-shine">
             <div class="p-8">
-                <h2 class="text-2xl font-bold text-center text-gray-800 mb-8">Welcome Back</h2>
+                <h2 class="text-2xl font-bold text-center text-gray-800 mb-8">Login your account</h2>
 
                 <?php if (isset($_SESSION['login_error'])): ?>
                 <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-6">

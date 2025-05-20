@@ -9,9 +9,13 @@ function createNotification($type, $message, $user_id = null) {
     
     try {
         $stmt = $pdo->prepare($sql);
-        $stmt->bindParam(':type', $type);
-        $stmt->bindParam(':message', $message);
-        $stmt->bindParam(':user_id', $user_id);
+        $stmt->bindParam(':type', $type, PDO::PARAM_STR);
+        $stmt->bindParam(':message', $message, PDO::PARAM_STR);
+        if ($user_id !== null) {
+            $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':user_id', null, PDO::PARAM_NULL);
+        }
         
         return $stmt->execute();
     } catch (PDOException $e) {

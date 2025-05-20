@@ -53,7 +53,7 @@ $totalComplaints = $countStmt->fetchColumn();
 $totalPages = ceil($totalComplaints / $perPage);
 
 // Fetch complaints with filtering, sorting and pagination
-$query = "SELECT id, type, name, phone, address, details, attachments, created_at, user_id, status, resolution_notes FROM complaints WHERE {$whereClause} ORDER BY {$orderBy} LIMIT {$offset}, {$perPage}";
+$query = "SELECT id, type, name, phone, address, details, attachments, created_at, user_id, status, admin_notes FROM complaints WHERE {$whereClause} ORDER BY {$orderBy} LIMIT {$offset}, {$perPage}";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $complaints = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -72,29 +72,6 @@ require_once 'create_notification.php';
 
 // Handle form submission for updating complaint status
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['update_complaint'])) {
-        $complaint_id = $_POST['complaint_id'];
-        
-        // Get current complaint status
-        $sql = "SELECT status FROM complaints WHERE id = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $complaint_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $current_status = $result->fetch_assoc()['status'];
-
-        // Get new status
-        $new_status = $_POST['status'];
-        
-        // Create notification if status changed
-        if ($new_status !== $current_status) {
-            $user_id = $_POST['user_id'];
-            $message = "Complaint #" . $complaint_id . " status updated from " . $current_status . " to " . $new_status;
-            createNotification('complaint', $message, $user_id);
-        }
-    }
-    
-    // Handle new complaint submission
     if (isset($_POST['submit_complaint'])) {
         $user_id = $_POST['user_id'];
         $type = $_POST['type'];
@@ -109,10 +86,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Insert complaint
         $sql = "INSERT INTO complaints (user_id, type, name, phone, email, address, subject_type, subject, details, status) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("issssssss", $user_id, $type, $name, $phone, $email, $address, $subject_type, $subject, $details);
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$user_id, $type, $name, $phone, $email, $address, $subject_type, $subject, $details]);
         
-        if ($stmt->execute()) {
+        if ($stmt) {
             // Create notification for new complaint
             $complaint_id = $stmt->insert_id;
             $message = "New complaint #" . $complaint_id . " submitted by " . $name;
@@ -123,6 +100,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
     }
+    
+    // Handle complaint status update
+    if (isset($_POST['update_complaint'])) {
+        $complaint_id = $_POST['complaint_id'];
         $status = $_POST['status'];
         $resolution_notes = isset($_POST['resolution_notes']) ? $_POST['resolution_notes'] : null;
         
@@ -145,6 +126,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Log the notification
                 $stmt = $pdo->prepare("INSERT INTO notification_logs (user_id, complaint_id, message, sent_at) VALUES (?, ?, ?, NOW())");
                 $stmt->execute([null, $complaint_id, $message]);
+                
+                // Create notification
+                if (createNotification('complaint', $message, null)) {
+                    $_SESSION['success_message'] = "Complaint status updated successfully and notification created.";
+                } else {
+                    $_SESSION['error_message'] = "Failed to create notification.";
+                }
                 $_SESSION['sms_message'] = "Notification sent to " . htmlspecialchars($contact);
             }
             
@@ -155,6 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (PDOException $e) {
             $update_error = "Failed to update complaint: " . $e->getMessage();
         }
+    }
     }
     
     // Handle bulk action if implemented
@@ -467,7 +456,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     <td class="px-5 py-4 whitespace-nowrap text-right">
                         <div class="flex justify-end space-x-2">
-                            <button onclick="viewComplaint('<?php echo htmlspecialchars($complaint['id']); ?>')" 
+                            <button onclick="complaintModal('<?php echo htmlspecialchars($complaint['id']); ?>')" 
                                     class="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-full p-2 transition-colors"
                                     title="View details">
                                 <i class="fas fa-eye"></i>
@@ -560,72 +549,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
 
-                <!-- Complaint Details Modal -->
-                <div id="complaintModal" class="hidden fixed inset-0 overflow-y-auto z-50">
-                    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+                <!-- Enhanced Complaint Details Modal -->
+<div id="complaintModal" class="hidden fixed inset-0 overflow-y-auto z-50">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-900" id="modalTitle">Complaint Details</h3>
+                            <button type="button" onclick="closeModal()" class="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <span class="sr-only">Close</span>
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
                         </div>
-                        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-                        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-                            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                <div class="sm:flex sm:items-start">
-                                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="modalTitle">Complaint Details</h3>
-                                        <div class="mt-2">
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <p class="text-sm font-medium text-gray-500">Complaint ID</p>
-                                                    <p id="modalComplaintId" class="mt-1 text-sm text-gray-900"></p>
-                                                </div>
-                                                <div>
-                                                    <p class="text-sm font-medium text-gray-500">Date Filed</p>
-                                                    <p id="modalDate" class="mt-1 text-sm text-gray-900"></p>
-                                                </div>
-                                                <div>
-                                                    <p class="text-sm font-medium text-gray-500">Complainant Name</p>
-                                                    <p id="modalName" class="mt-1 text-sm text-gray-900"></p>
-                                                </div>
-                                                <div>
-                                                    <p class="text-sm font-medium text-gray-500">Contact Number</p>
-                                                    <p id="modalContact" class="mt-1 text-sm text-gray-900"></p>
-                                                </div>
-                                                <div>
-                                                    <p class="text-sm font-medium text-gray-500">Complaint Type</p>
-                                                    <p id="modalType" class="mt-1 text-sm text-gray-900"></p>
-                                                </div>
-                                                <div>
-                                                    <p class="text-sm font-medium text-gray-500">Status</p>
-                                                    <p id="modalStatus" class="mt-1 text-sm text-gray-900"></p>
-                                                </div>
-                                                <div class="md:col-span-2">
-                                                    <p class="text-sm font-medium text-gray-500">Address</p>
-                                                    <p id="modalAddress" class="mt-1 text-sm text-gray-900"></p>
-                                                </div>
-                                                <div class="md:col-span-2">
-                                                    <p class="text-sm font-medium text-gray-500">Complaint Details</p>
-                                                    <p id="modalDetails" class="mt-1 text-sm text-gray-900"></p>
-                                                </div>
-                                                <div class="md:col-span-2">
-                                                    <p class="text-sm font-medium text-gray-500">Resolution Notes</p>
-                                                    <textarea id="modalResolutionNotes" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
-                                                </div>
+
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Basic Information -->
+                                <div class="bg-white p-4 rounded-lg shadow-sm">
+                                    <h4 class="font-medium text-gray-700 mb-4">Basic Information</h4>
+                                    <div class="space-y-3">
+                                        <div>
+                                            <p class="text-sm text-gray-500">Complaint ID</p>
+                                            <p id="modalComplaintId" class="mt-1 text-sm font-medium text-gray-900"></p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Date Filed</p>
+                                            <p id="modalDate" class="mt-1 text-sm font-medium text-gray-900"></p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Complainant Name</p>
+                                            <p id="modalName" class="mt-1 text-sm font-medium text-gray-900"></p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Complaint Details -->
+                                <div class="bg-white p-4 rounded-lg shadow-sm">
+                                    <h4 class="font-medium text-gray-700 mb-4">Complaint Details</h4>
+                                    <div class="space-y-3">
+                                        <div>
+                                            <p class="text-sm text-gray-500">Type</p>
+                                            <p id="modalType" class="mt-1 text-sm font-medium text-gray-900"></p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Status</p>
+                                            <div id="modalStatus" class="mt-1 flex items-center">
+                                                <span class="status-badge status-pending"></span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Address</p>
+                                            <p id="modalAddress" class="mt-1 text-sm font-medium text-gray-900"></p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Content and Notes -->
+                                <div class="col-span-2 mt-4 md:mt-0">
+                                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                                        <h4 class="font-medium text-gray-700 mb-4">Complaint Content</h4>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <p class="text-sm text-gray-500">Details</p>
+                                                <p id="modalDetails" class="mt-1 text-sm text-gray-900 line-clamp-3"></p>
+                                            </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                <button type="button" onclick="updateComplaint()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
-                                    Update Status
-                                </button>
-                                <button type="button" onclick="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
-                                    Close
-                                </button>
+
+                                <!-- Attachments -->
+                                <div class="col-span-2 mt-4">
+                                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                                        <h4 class="font-medium text-gray-700 mb-4">Attachments</h4>
+                                        <div id="modalAttachments" class="grid grid-cols-1 gap-3">
+                                            <!-- Attachments will be populated here -->
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="updateComplaint()" 
+                        class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    <i class="fas fa-save mr-2"></i> Update Status
+                </button>
+                <button type="button" onclick="closeModal()" 
+                        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    <i class="fas fa-times mr-2"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
                 <div id="editModal" class="hidden fixed inset-0 overflow-y-auto z-50">
                     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -663,19 +688,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                     </div>
                                                 </div>
 
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
                                                     <div>
                                                         <label for="editName" class="block text-sm font-medium text-gray-700 mb-1">Complainant Name</label>
                                                         <div class="mt-1">
                                                             <input type="text" name="name" id="editName" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" readonly>
                                                         </div>
                                                     </div>
-                                                    <div>
-                                                        <label for="editPhone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                                                        <div class="mt-1">
-                                                            <input type="text" name="phone" id="editPhone" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" readonly>
-                                                        </div>
-                                                    </div>
+
                                                 </div>
 
                                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -744,7 +764,6 @@ function openEditModal(data) {
     document.getElementById('editId').value = data.id;
     document.getElementById('editCreatedAt').value = data.created_at ? new Date(data.created_at).toLocaleString() : '';
     document.getElementById('editName').value = data.name;
-    document.getElementById('editPhone').value = data.phone;
     document.getElementById('editType').value = data.type;
     document.getElementById('editAddress').value = data.address || '';
     document.getElementById('editDetails').value = data.details || '';
@@ -808,16 +827,136 @@ function closeEditModal() {
             document.querySelector('.sidebar').classList.toggle('hidden');
         });
 
-        // Close modal
+        // Function to open complaint modal
+        function complaintModal(complaintId) {
+            // Show loading state
+            document.getElementById('modalTitle').innerHTML = 'Loading...';
+            
+            // Fetch complaint details from server
+            fetch(`get_complaint_details.php?id=${complaintId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Populate modal with data
+                    document.getElementById('modalTitle').innerHTML = 'Complaint Details';
+                    document.getElementById('modalComplaintId').textContent = `#${data.id}`;
+                    document.getElementById('modalDate').textContent = new Date(data.created_at).toLocaleDateString();
+                    document.getElementById('modalName').textContent = data.name;
+                    document.getElementById('modalType').textContent = data.type;
+                    
+                    // Update status with proper styling
+                    const statusDiv = document.getElementById('modalStatus');
+                    statusDiv.innerHTML = `
+                        <span class="px-2 py-1 rounded-full text-sm font-medium ${getStatusClass(data.status)}">
+                            ${getStatusIcon(data.status)} ${data.status}
+                        </span>
+                    `;
+                    
+                    document.getElementById('modalAddress').textContent = data.address;
+                    document.getElementById('modalDetails').textContent = data.details;
+                    
+                    // Populate attachments
+                    const attachmentsDiv = document.getElementById('modalAttachments');
+                    attachmentsDiv.innerHTML = '';
+                    if (data.attachments) {
+                        data.attachments.forEach(file => {
+                            const attachmentHtml = `
+                                <div class="flex items-center space-x-3 p-2 border-b border-gray-200">
+                                    <i class="fas fa-${getFileIcon(file)} text-gray-500"></i>
+                                    <a href="${file}" target="_blank" class="text-sm text-blue-600 hover:text-blue-800">
+                                        ${getFileName(file)}
+                                    </a>
+                                </div>
+                            `;
+                            attachmentsDiv.insertAdjacentHTML('beforeend', attachmentHtml);
+                        });
+                    }
+                    
+                    // Show modal
+                    document.getElementById('complaintModal').classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to load complaint details');
+                });
+        }
+
+        // Helper functions
+        function getStatusClass(status) {
+            const statusColors = {
+                'Pending': 'bg-yellow-100 text-yellow-800',
+                'In Progress': 'bg-blue-100 text-blue-800',
+                'Resolved': 'bg-green-100 text-green-800',
+                'Rejected': 'bg-red-100 text-red-800'
+            };
+            return statusColors[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        function getStatusIcon(status) {
+            const statusIcons = {
+                'Pending': '<i class="fas fa-clock mr-1"></i>',
+                'In Progress': '<i class="fas fa-spinner animate-spin mr-1"></i>',
+                'Resolved': '<i class="fas fa-check-circle mr-1"></i>',
+                'Rejected': '<i class="fas fa-times-circle mr-1"></i>'
+            };
+            return statusIcons[status] || '<i class="fas fa-question-circle mr-1"></i>';
+        }
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const icons = {
+                'jpg': 'image',
+                'jpeg': 'image',
+                'png': 'image',
+                'gif': 'image',
+                'pdf': 'file-pdf',
+                'doc': 'file-word',
+                'docx': 'file-word',
+                'xls': 'file-excel',
+                'xlsx': 'file-excel'
+            };
+            return icons[ext] || 'file-alt';
+        }
+
+        function getFileName(path) {
+            return path.split('/').pop();
+        }
+
+        // Close modal function
         function closeModal() {
             document.getElementById('complaintModal').classList.add('hidden');
         }
 
         // Update complaint status
         function updateComplaint() {
-            const notes = document.getElementById('modalResolutionNotes').value;
-            alert('Complaint status updated with notes:\n\n' + notes);
-            closeModal();
+            const complaintId = document.getElementById('modalComplaintId').textContent.replace('#', '');
+            const statusDiv = document.querySelector('.status-badge');
+            const status = statusDiv ? statusDiv.textContent.trim() : 'Pending';
+            const resolutionNotes = document.getElementById('modalResolutionNotes').value;
+            
+            fetch('update_complaint.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: complaintId,
+                    status: status,
+                    resolution_notes: resolutionNotes
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal();
+                    location.reload(); // Refresh page to show updated status
+                } else {
+                    alert('Failed to update complaint');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating complaint');
+            });
         }
 
         // Send SMS notification

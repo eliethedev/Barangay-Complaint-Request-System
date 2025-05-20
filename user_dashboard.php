@@ -29,7 +29,7 @@ $totalRequests = $stmt->fetch(PDO::FETCH_ASSOC)['total_requests'];
 
 // Fetch complaints data for current user
 $stmt = $pdo->prepare("
-    SELECT id, type, name, phone, address, details, attachments, status, created_at 
+    SELECT id, type, name, phone, address, details, attachments, status, created_at, admin_notes 
     FROM complaints 
     WHERE user_id = :user_id 
     ORDER BY created_at DESC
@@ -40,7 +40,7 @@ $complaints = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch request data for current user
 $stmt2 = $pdo->prepare("
-    SELECT id, user_id, type, name, phone, details, attachments, status, created_at 
+    SELECT id, user_id, type, name, phone, details, attachments, status, created_at, admin_notes
     FROM requests 
     WHERE user_id = :user_id 
     ORDER BY created_at DESC
@@ -243,7 +243,7 @@ $requests = $stmt2->fetchAll(PDO::FETCH_ASSOC);
             <!-- Summary Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <!-- Complaints Summary -->
-                <div class="summary-card bg-gradient-to-r from-red-50 to-red-100">
+                <div class="summary-card bg-gradient-to-r from-red-50 to-red-100" >
                     <div>
                         <h3 class="text-sm font-medium text-red-700 mb-1">Total Complaints</h3>
                         <p class="text-3xl font-bold text-red-900"><?= $totalComplaints ?></p>
@@ -267,31 +267,6 @@ $requests = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                     <div class="summary-icon bg-blue-200 text-blue-600">
                         <i class="fas fa-file-alt"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Search and Filter -->
-            <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-                <div class="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
-                    <div class="search-container flex-grow">
-                        <i class="fas fa-search search-icon"></i>
-                        <input type="text" id="searchInput" 
-                               class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                               placeholder="Search submissions...">
-                    </div>
-                    <div class="flex space-x-4">
-                        <select id="statusFilter" 
-                                class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">All Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="resolved">Resolved</option>
-                        </select>
-                        <button onclick="searchSubmissions()" 
-                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                            <i class="fas fa-filter mr-2"></i> Filter
-                        </button>
                     </div>
                 </div>
             </div>
@@ -432,13 +407,71 @@ $requests = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                 </div>
             </div>
-            <!-- View Modal -->
+            <!-- Enhanced View Modal -->
 <div id="viewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-        <h2 class="text-lg font-semibold mb-4">Submission Details</h2>
-        <div id="viewContent" class="text-sm space-y-2"></div>
-        <div class="text-right mt-4">
-            <button onclick="closeModal('viewModal')" class="bg-gray-300 text-gray-800 px-4 py-2 rounded">Close</button>
+    <div class="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full mx-4">
+        <div class="border-b pb-4 mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Submission Details</h2>
+            <div id="submissionHeader" class="flex justify-between items-center mt-2">
+                <div id="submissionType" class="text-sm text-gray-500"></div>
+                <div id="submissionStatus" class="status-badge status-pending"></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Basic Information -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-700 mb-3">Basic Information</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Type</span>
+                        <span id="submissionTypeValue" class="font-medium"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Date Submitted</span>
+                        <span id="submissionDate" class="font-medium"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Status</span>
+                        <span id="submissionStatusValue" class="font-medium"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Notes -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-700 mb-3">Admin Notes</h3>
+                <div id="submissionAdminNotes" class="text-gray-700 line-clamp-6">
+                    <p class="text-gray-500">No notes available</p>
+                </div>
+            </div>
+
+            <!-- Details -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-700 mb-3">Details</h3>
+                <div id="submissionDetails" class="text-gray-700 line-clamp-4"></div>
+            </div>
+
+            <!-- Attachments -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-700 mb-3">Attachments</h3>
+                <div id="submissionAttachments" class="grid grid-cols-1 gap-2">
+                    <!-- Attachments will be populated here -->
+                </div>
+            </div>
+
+            <!-- Location -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-700 mb-3">Location</h3>
+                <div id="submissionLocation" class="text-gray-700"></div>
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-end">
+            <button onclick="closeModal('viewModal')" 
+                    class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition-colors">
+                Close
+            </button>
         </div>
     </div>
 </div>
@@ -526,23 +559,117 @@ function searchSubmissions() {
 function openViewModal(dataJson) {
     const data = JSON.parse(dataJson);
     const modal = document.getElementById('viewModal');
-    const content = document.getElementById('viewContent');
     
     // Show loading state
     modal.classList.remove('hidden');
-    content.innerHTML = '<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>';
-    
-    // Load content after a small delay for better UX
-    setTimeout(() => {
-        let html = '';
-        for (const [key, value] of Object.entries(data)) {
-            html += `<div class="mb-2">
-                        <strong class="capitalize">${key}:</strong> 
-                        <span>${value}</span>
-                     </div>`;
+    const header = document.getElementById('submissionHeader');
+    header.innerHTML = `
+        <div class="text-sm text-gray-500">${data.type} - #${data.id}</div>
+        <div class="status-badge ${getStatusClass(data.status)}">
+            <i class="fas ${getStatusIcon(data.status)} mr-1"></i>
+            ${getStatusText(data.status)}
+        </div>
+    `;
+
+    // Populate basic information
+    document.getElementById('submissionTypeValue').textContent = data.type;
+    document.getElementById('submissionDate').textContent = new Date(data.created_at).toLocaleString();
+    document.getElementById('submissionStatusValue').textContent = getStatusText(data.status);
+
+    // Populate resolution notes
+    const resolutionNotesDiv = document.getElementById('submissionResolutionNotes');
+    if (data.resolution_notes) {
+        resolutionNotesDiv.innerHTML = `
+            <p class="text-gray-700">${data.resolution_notes}</p>
+        `;
+    } else {
+        resolutionNotesDiv.innerHTML = `
+            <p class="text-gray-500">No notes available</p>
+        `;
+    }
+
+    // Populate details
+    document.getElementById('submissionDetails').innerHTML = `
+        <p class="text-gray-700">${data.details}</p>
+    `;
+
+    // Populate attachments
+    const attachmentsDiv = document.getElementById('submissionAttachments');
+    attachmentsDiv.innerHTML = '';
+    if (data.attachments) {
+        const attachments = JSON.parse(data.attachments);
+        if (attachments.length > 0) {
+            attachments.forEach(attachment => {
+                const attachmentType = attachment.split('.').pop().toLowerCase();
+                const icon = getAttachmentIcon(attachmentType);
+                const preview = getAttachmentPreview(attachmentType, attachment);
+                
+                const attachmentElement = document.createElement('div');
+                attachmentElement.className = 'p-2 border rounded-lg flex items-center';
+                attachmentElement.innerHTML = `
+                    <i class="fas ${icon} text-gray-400 mr-2"></i>
+                    <a href="${attachment}" target="_blank" class="text-blue-600 hover:text-blue-800">
+                        ${attachment.split('/').pop()}
+                    </a>
+                    ${preview}
+                `;
+                attachmentsDiv.appendChild(attachmentElement);
+            });
+        } else {
+            attachmentsDiv.innerHTML = '<p class="text-gray-500">No attachments</p>';
         }
-        content.innerHTML = html;
-    }, 300);
+    } else {
+        attachmentsDiv.innerHTML = '<p class="text-gray-500">No attachments</p>';
+    }
+
+    // Populate location
+    document.getElementById('submissionLocation').textContent = data.address || 'Location not specified';
+
+    // Add fade-in animation
+    setTimeout(() => {
+        modal.classList.add('fade-in');
+    }, 100);
+}
+
+// Helper functions for status display
+function getStatusClass(status) {
+    switch(status.toLowerCase()) {
+        case 'pending': return 'status-pending';
+        case 'in_progress': return 'status-in_progress';
+        case 'resolved': return 'status-resolved';
+        default: return 'status-pending';
+    }
+}
+
+function getStatusIcon(status) {
+    switch(status.toLowerCase()) {
+        case 'pending': return 'fa-clock';
+        case 'in_progress': return 'fa-spinner';
+        case 'resolved': return 'fa-check-circle';
+        default: return 'fa-clock';
+    }
+}
+
+function getStatusText(status) {
+    return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
+}
+
+// Helper functions for attachments
+function getAttachmentIcon(type) {
+    switch(type) {
+        case 'jpg': case 'jpeg': case 'png': return 'fa-image';
+        case 'pdf': return 'fa-file-pdf';
+        case 'doc': case 'docx': return 'fa-file-word';
+        default: return 'fa-file';
+    }
+}
+
+function getAttachmentPreview(type, path) {
+    if (type === 'jpg' || type === 'jpeg' || type === 'png') {
+        return `<img src="${path}" alt="Preview" class="w-16 h-16 ml-2 rounded-lg object-cover hidden" 
+                    onerror="this.style.display='none'">`;
+    }
+    return '';
 }
 
 // Edit modal with form validation

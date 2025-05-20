@@ -255,7 +255,7 @@ $recentActivities = array_slice($activities, 0, 10);
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div class="bg-white rounded-lg shadow p-4 stat-card stat-card-blue card-hover">
-                        <div class="flex items-center">
+                        <div class="flex items-center" onclick="window.location.href='complaint.php'" style="cursor: pointer;">
                             <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
                                 <i class="fas fa-exclamation-circle text-xl"></i>
                             </div>
@@ -272,7 +272,7 @@ $recentActivities = array_slice($activities, 0, 10);
                         </div>
                     </div>
                     <div class="bg-white rounded-lg shadow p-4 stat-card stat-card-green card-hover">
-                        <div class="flex items-center">
+                        <div class="flex items-center" onclick="window.location.href='request.php'" style="cursor: pointer;">
                             <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
                                 <i class="fas fa-hand-paper text-xl"></i>
                             </div>
@@ -306,7 +306,7 @@ $recentActivities = array_slice($activities, 0, 10);
                         </div>
                     </div>
                     <div class="bg-white rounded-lg shadow p-4 stat-card stat-card-yellow card-hover">
-                        <div class="flex items-center">
+                        <div class="flex items-center" onclick="window.location.href='residents.php'" style="cursor: pointer;">
                             <div class="p-3 rounded-full bg-yellow-100 text-yellow-600 mr-4">
                                 <i class="fas fa-users text-xl"></i>
                             </div>

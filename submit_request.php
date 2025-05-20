@@ -542,52 +542,55 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     <div class="payment-modal" id="paymentModal">
                         <div class="payment-modal-content">
                             <div class="payment-modal-header">
-                                <h2 class="text-xl font-bold text-gray-800">Payment Details</h2>
+                                <h2 class="text-lg font-bold text-gray-800">Payment Details</h2>
                                 <span class="modal-close" onclick="closePaymentModal()">&times;</span>
                             </div>
                             
-                            <div class="payment-info">
-                                <p class="text-lg font-semibold text-gray-800 mb-2">Payment Amount: <span id="paymentAmount">₱0.00</span></p>
-                                <p class="text-gray-600">Please complete the payment using GCash</p>
-                                
-                                <div class="gcash-qr-container mt-4">
-                                    <img src="https://www.gcash.com/wp-content/uploads/2022/09/GCash-QR-Code-1.png" alt="GCash QR Code" class="gcash-qr" id="gcashQR">
-                                    <p class="text-xs text-gray-500 mt-2">Barangay Official GCash Account</p>
-                                </div>
-                                
-                                <div class="payment-reference mt-4">
-                                    <p class="font-medium text-gray-700">Reference Number: <span id="paymentReference">1234567890</span></p>
-                                </div>
-                            </div>
-                            
-                            <div class="payment-instructions">
-                                <h3 class="text-sm font-semibold text-gray-700 mb-2">Payment Instructions:</h3>
-                                <ol class="list-decimal list-inside text-sm text-gray-600">
-                                    <li>Scan the GCash QR code using your GCash app</li>
-                                    <li>Enter the exact amount shown above</li>
-                                    <li>Use the reference number when making the payment</li>
-                                    <li>Upload screenshot of your payment confirmation</li>
-                                    <li>Admin will verify your payment after submission</li>
-                                </ol>
-                                <p class="mt-2 text-xs text-yellow-600 font-medium">Note: Your request will remain in "Pending" status until admin verifies your payment proof.</p>
-                            </div>
-                            
-                            <!-- Proof of Payment Upload -->
-                            <div class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Proof of Payment (Required)</label>
-                                <div class="file-upload-container border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors cursor-pointer bg-gray-50" id="proofDropZone">
-                                    <div class="flex flex-col items-center">
-                                        <i class="fas fa-camera text-3xl text-gray-400 mb-2"></i>
-                                        <p class="text-gray-600 mb-1">Upload screenshot of GCash payment</p>
-                                        <button type="button" class="text-blue-500 font-medium hover:text-blue-700" onclick="document.getElementById('proof_of_payment').click()">Browse files</button>
-                                        <p class="text-xs text-gray-500 mt-2">Supported formats: JPG, PNG, PDF</p>
+                            <div class="payment-modal-body overflow-y-auto max-h-[70vh] p-4">
+                                <div class="payment-info">
+                                    <p class="text-base font-semibold text-gray-800 mb-2">Payment Amount: <span id="paymentAmount">₱0.00</span></p>
+                                    <p class="text-gray-600 text-sm">Please complete the payment using GCash</p>
+                                    
+                                    <div class="gcash-qr-container mt-3">
+                                        <img src="uploads/gcash/gcash.jfif" alt="GCash QR Code" class="gcash-qr w-48 h-48 object-contain" id="gcashQR">
+                                        <p class="text-xs text-gray-500 mt-1">Barangay Official GCash Account</p>
+                                    </div>
+                                    
+                                    <div class="payment-reference mt-3">
+                                        <p class="font-medium text-gray-800">Gcash Number: 09708228108</span</p>
+                                        <p class="font-medium text-gray-800">Reference Number: <span id="paymentReference">1234567890</span></p>
                                     </div>
                                 </div>
-                                <div id="proofFileList" class="mt-2 text-sm text-gray-600 hidden"></div>
+                                
+                                <div class="payment-instructions mt-4">
+                                    <h3 class="text-xs font-semibold text-gray-700 mb-1">Payment Instructions:</h3>
+                                    <ol class="list-decimal list-inside text-xs text-gray-600">
+                                        <li>Scan the GCash QR code using your GCash app</li>
+                                        <li>Enter the exact amount shown above</li>
+                                        <li>Use the reference number when making the payment</li>
+                                        <li>Upload screenshot of your payment confirmation</li>
+                                        <li>Admin will verify your payment after submission</li>
+                                    </ol>
+                                    <p class="mt-1 text-xs text-yellow-600 font-medium">Note: Your request will remain in "Pending" status until admin verifies your payment proof.</p>
+                                </div>
+                                
+                                <!-- Proof of Payment Upload -->
+                                <div class="mt-4">
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">Proof of Payment (Required)</label>
+                                    <div class="file-upload-container border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer bg-gray-50">
+                                        <div class="flex flex-col items-center">
+                                            <i class="fas fa-camera text-2xl text-gray-400 mb-1"></i>
+                                            <p class="text-gray-600 text-sm mb-1">Upload screenshot of GCash payment</p>
+                                            <button type="button" class="text-blue-500 font-medium text-sm hover:text-blue-700" onclick="document.getElementById('proof_of_payment').click()">Browse files</button>
+                                            <p class="text-xs text-gray-500 mt-1">Supported formats: JPG, PNG, PDF</p>
+                                        </div>
+                                    </div>
+                                    <div id="proofFileList" class="mt-2 text-xs text-gray-600 hidden"></div>
+                                </div>
                             </div>
                             
-                            <div class="mt-6">
-                                <button type="button" class="btn-primary w-full" onclick="validatePayment()" id="confirmPaymentBtn">
+                            <div class="payment-modal-footer p-4">
+                                <button type="button" class="btn-primary w-full text-sm" onclick="validatePayment()" id="confirmPaymentBtn">
                                     <i class="fas fa-check mr-2"></i> Confirm Payment
                                 </button>
                             </div>

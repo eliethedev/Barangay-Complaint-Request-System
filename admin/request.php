@@ -310,81 +310,76 @@ if (!isset($_SESSION['csrf_token'])) {
                     <table class="min-w-full divide-y divide-gray-200">
     <thead class="bg-gray-50">
         <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request ID</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resident</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Proof</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resident</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
         </tr>
     </thead>
     <tbody class="bg-white divide-y divide-gray-200">
         <?php foreach ($requests as $request): ?>
             <?php
-                // Optional: fetch user details if needed
-                // $user = getUserDetails($pdo, $request['user_id']);
-
+                $user = getUserDetails($pdo, $request['user_id']);
                 $statusClasses = [
-                    'Pending'     => 'bg-yellow-100 text-yellow-800',
-                    'In Progress' => 'bg-blue-100 text-blue-800',
-                    'Resolved'    => 'bg-green-100 text-green-800',
-                    'Rejected'    => 'bg-red-100 text-red-800'
+                    'Pending'     => 'bg-yellow-50 text-yellow-700',
+                    'In Progress' => 'bg-blue-50 text-blue-700',
+                    'Resolved'    => 'bg-green-50 text-green-700',
+                    'Rejected'    => 'bg-red-50 text-red-700'
                 ];
-                $statusClass = $statusClasses[$request['status']] ?? 'bg-gray-100 text-gray-800';
+                $statusClass = $statusClasses[$request['status']] ?? 'bg-gray-50 text-gray-700';
 
                 $typeClasses = [
-                    'Document'    => 'bg-indigo-100 text-indigo-800',
-                    'Permit'      => 'bg-purple-100 text-purple-800',
-                    'Assistance'  => 'bg-pink-100 text-pink-800',
-                    'Other'       => 'bg-gray-100 text-gray-800'
+                    'Document'    => 'bg-indigo-50 text-indigo-700',
+                    'Permit'      => 'bg-purple-50 text-purple-700',
+                    'Assistance'  => 'bg-pink-50 text-pink-700',
+                    'Other'       => 'bg-gray-50 text-gray-700'
                 ];
-                $typeClass = $typeClasses[$request['type']] ?? 'bg-gray-100 text-gray-800';
+                $typeClass = $typeClasses[$request['type']] ?? 'bg-gray-50 text-gray-700';
             ?>
-            <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?= htmlspecialchars($request['id']) ?></td>
-                <td class="px-6 py-4 whitespace-nowrap">
+            <tr class="hover:bg-gray-50 transition-colors duration-200 ease-in-out">
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900"><?= htmlspecialchars($request['id']) ?></td>
+                <td class="px-4 py-2 whitespace-nowrap">
                     <div class="text-sm font-medium text-gray-900"><?= htmlspecialchars($request['name']) ?></div>
-                    <div class="text-sm text-gray-500"><?= htmlspecialchars($request['phone']) ?></div>
+                    <div class="text-sm text-gray-600 mt-1"><?= htmlspecialchars($user['phone'] ?? $request['phone']) ?></div>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?= $typeClass ?>">
+                <td class="px-4 py-2 whitespace-nowrap">
+                    <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full <?= $typeClass ?>">
                         <?= htmlspecialchars($request['type']) ?>
                     </span>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <?php if ($request['payment_status'] === 'paid'): ?>
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                            Paid
-                        </span>
-                    <?php else: ?>
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                            Pending
-                        </span>
-                    <?php endif; ?>
+                <td class="px-4 py-2 whitespace-nowrap">
+                    <div class="flex items-center space-x-2">
+                        <?php if ($request['payment_status'] === 'paid'): ?>
+                            <span class="px-2 py-1 text-xs font-semibold bg-green-50 text-green-700 rounded-full">
+                                Paid
+                            </span>
+                        <?php else: ?>
+                            <span class="px-2 py-1 text-xs font-semibold bg-yellow-50 text-yellow-700 rounded-full">
+                                Pending
+                            </span>
+                        <?php endif; ?>
+                        <?php if ($request['proof_of_payment']): ?>
+                            <a href="<?= htmlspecialchars('../' . $request['proof_of_payment']) ?>" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm">
+                                <i class="fas fa-file-image"></i>
+                            </a>
+                        <?php endif; ?>
+                    </div>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <?php if ($request['proof_of_payment']): ?>
-                        <a href="<?= htmlspecialchars('../' . $request['proof_of_payment']) ?>" target="_blank" class="text-blue-600 hover:text-blue-800">
-                            <i class="fas fa-file-image mr-1"></i> View Proof
-                        </a>
-                    <?php endif; ?>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <?= htmlspecialchars($request['details']) ?>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <?= date('M d, Y', strtotime($request['created_at'])) ?>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?= $statusClass ?>">
+                <td class="px-4 py-2 whitespace-nowrap">
+                    <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full <?= $statusClass ?>">
                         <?= htmlspecialchars($request['status']) ?>
                     </span>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href="request_view.php?id=<?= $request['id'] ?>" class="text-blue-600 hover:text-blue-900" title="View Details"><i class="fas fa-eye"></i></a>
+                <td class="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                    <div class="flex items-center justify-end space-x-2">
+                        <a href="request_view.php?id=<?= $request['id'] ?>" 
+                           class="text-black text-xl hover:text-gray-600 transition-colors duration-200 ease-in-out"
+                           title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
                 </td>
             </tr>
         <?php endforeach; ?>
